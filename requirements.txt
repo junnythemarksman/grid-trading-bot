@@ -1,0 +1,5 @@
+ccxt
+python-dotenv
+flask
+flask-socketio
+flask-httpauth
