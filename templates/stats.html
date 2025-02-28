@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bot Statistics - {{ symbol }}</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        #price-float {
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            z-index: 1000;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="mb-4">Statistics for {{ symbol }}</h1>
+        <a href="/" class="btn btn-primary mb-3">Back to Dashboard</a>
+
+        <div id="price-float" class="price-float">
+            Current Price (<span id="quote-symbol">{{ stats.quote if stats else symbol[-4:] }}</span>/<span id="base-symbol">{{ stats.base if stats else symbol[:-4] }}</span>): <span id="current-price">{{ stats.current_price if stats and stats.current_price else 'N/A' }}</span>
+        </div>
+
+        {% if stats and stats.total_profit %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2>Financials</h2>
+                </div>
+                <div class="card-body">
+                    <p>Total Profit: <span id="total-profit">{{ stats.total_profit }}</span> (<span id="total-profit-percent">{{ stats.total_profit_percent }}%</span>)</p>
+                    <p>Grid Profit: <span id="grid-profit">{{ stats.grid_profit }}</span> (<span id="grid-profit-percent">{{ stats.grid_profit_percent }}%</span>)</p>
+                    <p>Floating Profit: <span id="floating-profit">{{ stats.floating_profit }}</span> (<span id="floating-profit-percent">{{ stats.floating_profit_percent }}%</span>)</p>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2>Open Orders</h2>
+                </div>
+                <div class="card-body">
+                    <ul id="open-orders-list">
+                        {% for order in stats.open_orders %}
+                            <li>{{ order.side }} - Price: {{ order.price }}, Amount: {{ order.amount }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h2>Recent Trades</h2>
+                </div>
+                <div class="card-body">
+                    <ul id="trades-list">
+                        {% for trade in stats.recent_trades %}
+                            <li>{{ trade.side }} - Price: {{ trade.price }}, Amount: {{ trade.amount }} at {{ trade.timestamp }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        {% else %}
+            <div class="alert alert-info">No detailed statistics available for {{ symbol }}.</div>
+        {% endif %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.min.js"></script>
+    <script>
+        $(document).ready(function() {
+            const socket = io.connect('http://' + document.domain + ':' + location.port);
+            const symbol = "{{ symbol }}";
+
+            socket.on('connect', function() {
+                console.log('SocketIO connected');
+            });
+
+            socket.on('update_stats', function(data) {
+                console.log('Received stats update:', data);
+                if (data[symbol]) {
+                    const stats = data[symbol];
+                    if (stats.total_profit) {
+                        $('#total-profit').text(stats.total_profit);
+                        $('#total-profit-percent').text(stats.total_profit_percent + '%');
+                        $('#grid-profit').text(stats.grid_profit);
+                        $('#grid-profit-percent').text(stats.grid_profit_percent + '%');
+                        $('#floating-profit').text(stats.floating_profit);
+                        $('#floating-profit-percent').text(stats.floating_profit_percent + '%');
+
+                        const ordersList = $('#open-orders-list');
+                        ordersList.empty();
+                        stats.open_orders.forEach(order => {
+                            const li = document.createElement('li');
+                            li.textContent = `${order.side} - Price: ${order.price}, Amount: ${order.amount}`;
+                            ordersList.append(li);
+                        });
+
+                        const tradesList = $('#trades-list');
+                        tradesList.empty();
+                        stats.recent_trades.forEach(trade => {
+                            const li = document.createElement('li');
+                            li.textContent = `${trade.side} - Price: ${trade.price}, Amount: ${trade.amount} at ${trade.timestamp}`;
+                            tradesList.append(li);
+                        });
+                    }
+                    $('#current-price').text(stats.current_price);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
